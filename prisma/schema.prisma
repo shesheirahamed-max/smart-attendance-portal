@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  WORKER
+}
+
+model User {
+  id           String       @id @default(uuid())
+  name         String
+  phone        String       @unique
+  password     String
+  role         Role         @default(WORKER)
+  hourlyRate   Float        @default(0)
+  salaryRate   Int          @default(500) // প্রতিদিনের বেতনের হার
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  attendances  Attendance[]
+  payrolls     Payroll[]
+}
+
+model Attendance {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      DateTime @default(now())
+  checkIn   DateTime @default(now())
+  selfieUrl String?
+  hours     Float    @default(0)
+  createdAt DateTime @default(now())
+}
+
+model Payroll {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  month       String
+  basicSalary Float
+  otHours     Float    @default(0)
+  otAmount    Float    @default(0)
+  totalAmount Float
+  paidAmount  Float    @default(0)
+  dueAmount   Float    @default(0)
+  createdAt   DateTime @default(now())
+}
