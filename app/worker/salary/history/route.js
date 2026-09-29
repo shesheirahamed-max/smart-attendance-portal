@@ -39,4 +39,4 @@ export async function GET(req) {
     console.error('Salary Fetch Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}+
+}

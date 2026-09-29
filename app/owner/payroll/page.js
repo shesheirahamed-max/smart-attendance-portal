@@ -1,16 +1,18 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function OwnerPayrollPage() {
   const [workers, setWorkers] = useState([]);
   const [month, setMonth] = useState('September');
   const [year, setYear] = useState('2026');
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  // ওয়ার্কার এবং তাদের বেতনের তালিকা ফেচ করার ফাংশন
+  // ওয়ার্কার এবং তাদের বেতনের তালিকা ব্যাকএন্ডের নিয়মে ফেচ করা
   const fetchPayrollData = async () => {
     try {
-      const res = await fetch(`/api/owner/workers-attendance?month=${month}&year=${year}`);
+      const res = await fetch(`/api/owner/workers-attendance?month=${month}`);
       const data = await res.json();
       if (res.ok) {
         setWorkers(data.workers || []);
@@ -24,7 +26,7 @@ export default function OwnerPayrollPage() {
     fetchPayrollData();
   }, [month, year]);
 
-  // বেতন পরিশোধ করার ফাংশন (Paid করা)
+  // বেতন পরিশোধ করার ফাংশন (ব্যাকএন্ডের রুট ও ফিল্ড অনুযায়ী)
   const handlePaySalary = async (workerId, amount) => {
     if (!confirm(`আপনি কি নিশ্চিতভাবে এই কর্মীকে ${amount} টাকা বেতন পরিশোধ করতে চান?`)) return;
 
@@ -54,14 +56,35 @@ export default function OwnerPayrollPage() {
   };
 
   return (
-    <div style={{ padding: '30px', maxWidth: '900px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
-      <h2>বেতন ব্যবস্থাপনা ও পে-রোল (Payroll Disbursement)</h2>
+    <div style={{ padding: '30px', maxWidth: '950px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
+      
+      {/* ব্যাক বাটন */}
+      <div style={{ marginBottom: '20px' }}>
+        <button
+          onClick={() => router.push('/owner/dashboard')}
+          style={{
+            background: '#6c757d',
+            color: '#fff',
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+        >
+          ← ড্যাশবোর্ডে ফিরে যান
+        </button>
+      </div>
+
+      <h2>💰 বেতন ব্যবস্থাপনা ও পে-রোল (Payroll Disbursement)</h2>
+      <p style={{ color: '#555' }}>মাসের ভিত্তিতে ওয়ার্কারদের হাজিরা এবং বেতনের হিসাব ও পরিশোধ পরিচালনা করুন:</p>
       
       {/* মাস ও বছর সিলেক্ট করার অপশন */}
-      <div style={{ margin: '20px 0', display: 'flex', gap: '20px', alignItems: 'center' }}>
+      <div style={{ margin: '20px 0', display: 'flex', gap: '20px', alignItems: 'center', background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #ddd' }}>
         <div>
           <label style={{ marginRight: '8px', fontWeight: 'bold' }}>মাস:</label>
-          <select value={month} onChange={(e) => setMonth(e.target.value)} style={{ padding: '8px', borderRadius: '4px' }}>
+          <select value={month} onChange={(e) => setMonth(e.target.value)} style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}>
             <option value="January">January</option>
             <option value="February">February</option>
             <option value="March">March</option>
@@ -103,15 +126,15 @@ export default function OwnerPayrollPage() {
             {workers.length > 0 ? (
               workers.map((worker) => (
                 <tr key={worker.id} style={{ borderBottom: '1px solid #ddd' }}>
-                  <td style={{ padding: '12px', border: '1px solid #ddd' }}>{worker.name}</td>
-                  <td style={{ padding: '12px', border: '1px solid #ddd' }}>{worker.phone}</td>
-                  <td style={{ padding: '12px', border: '1px solid #ddd' }}>{worker.totalSalary || 0}</td>
+                  <td style={{ padding: '12px', border: '1px solid #ddd', fontWeight: 'bold' }}>{worker.name}</td>
+                  <td style={{ padding: '12px', border: '1px solid #ddd', color: '#555' }}>{worker.phone}</td>
+                  <td style={{ padding: '12px', border: '1px solid #ddd', color: 'green', fontWeight: 'bold' }}>৳ {worker.totalSalary || 0}</td>
                   <td style={{ padding: '12px', border: '1px solid #ddd' }}>
                     <span style={{ 
                       padding: '5px 10px', 
                       borderRadius: '4px', 
                       color: '#fff', 
-                      background: worker.status === 'PAID' ? 'green' : 'orange',
+                      background: worker.status === 'PAID' ? '#28a745' : '#ffc107',
                       fontSize: '12px',
                       fontWeight: 'bold'
                     }}>
@@ -132,7 +155,7 @@ export default function OwnerPayrollPage() {
                         fontWeight: 'bold'
                       }}
                     >
-                      {worker.status === 'PAID' ? 'পরিশোধিত' : 'বেতন দিন (Pay)'}
+                      {worker.status === 'PAID' ? 'পরিশোধিত (Paid)' : 'বেতন দিন (Pay)'}
                     </button>
                   </td>
                 </tr>

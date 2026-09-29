@@ -1,76 +1,144 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function WorkerDashboard() {
-  const [attendanceList, setAttendanceList] = useState([]);
+  const [worker, setWorker] = useState(null);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState('');
-
-  // যাচাইকৃত ডাটাবেস ইউজার আইডি ব্যবহার করুন
-  const workerUserId = "b7165d37-e5ea-4875-9feb-237e54099f4e";
+  const router = useRouter();
 
   useEffect(() => {
-    async function fetchAttendance() {
+    let workerData = null;
+    const storedUser = localStorage.getItem('user');
+    
+    if (storedUser) {
       try {
-        const res = await fetch(`http://localhost:3000/api/attendance/history?userId=${workerUserId}`);
-        const data = await res.json();
-        if (res.ok) {
-          setAttendanceList(data.attendances || []);
-        } else {
-          setMessage(data.error || 'Failed to load history');
-        }
-      } catch (err) {
-        setMessage('Server connection error');
-      } finally {
-        setLoading(false);
+        workerData = JSON.parse(storedUser);
+      } catch (e) {}
+    }
+
+    if (!workerData) {
+      const userId = localStorage.getItem('userId');
+      const userName = localStorage.getItem('userName');
+      const userPhone = localStorage.getItem('userPhone') || localStorage.getItem('phone');
+      if (userId || userPhone) {
+        workerData = { id: userId, name: userName || 'Worker', phone: userPhone || userId };
       }
     }
 
-    fetchAttendance();
-  }, []);
+    if (!workerData) {
+      router.push('/login');
+    } else {
+      setWorker(workerData);
+      const currentId = workerData.phone || workerData.id || workerData.userId;
+      fetchHistory(currentId);
+    }
+    setLoading(false);
+  }, [router]);
+
+  const fetchHistory = async (id) => {
+    try {
+      const res = await fetch(`/api/attendance/history?workerId=${id}`);
+      const result = await res.json();
+      if (result.success) {
+        setHistory(result.data);
+      }
+    } catch (err) {
+      console.log('Error fetching history:', err);
+    }
+  };
+
+  if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
 
   return (
-    <div style={{ padding: '40px', maxWidth: '700px', margin: 'auto', fontFamily: 'sans-serif' }}>
-      <h2>👷 Worker Dashboard</h2>
-      <p style={{ color: '#555' }}>View your attendance records and work history below:</p>
+    <div style={{ padding: '40px', maxWidth: '600px', margin: 'auto', fontFamily: 'sans-serif' }}>
+      
+      {/* হোম পেজে যাওয়ার বাটন */}
+      <div style={{ marginBottom: '20px' }}>
+        <button
+          onClick={() => router.push('/')}
+          style={{
+            background: '#6c757d',
+            color: 'white',
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+        >
+          ← Back to Home
+        </button>
+      </div>
 
-      <div style={{ marginTop: '20px', background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd' }}>
-        <h3>Attendance History</h3>
+      <h2 style={{ color: '#333', marginBottom: '10px' }}>Worker Dashboard</h2>
+      <p style={{ color: '#666', marginBottom: '25px' }}>Welcome to your profile dashboard.</p>
 
-        {loading ? (
-          <p>Loading records...</p>
-        ) : message ? (
-          <p style={{ color: 'red' }}>{message}</p>
-        ) : attendanceList.length === 0 ? (
-          <p>No attendance records found yet.</p>
+      <div style={{ background: '#f8f9fa', padding: '25px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '25px' }}>
+        <h3 style={{ marginTop: 0, color: '#0070f3', borderBottom: '2px solid #0070f3', paddingBottom: '8px', marginBottom: '15px' }}>
+          Worker Profile Details
+        </h3>
+        
+        {worker ? (
+          <div style={{ fontSize: '16px', lineHeight: '1.8', color: '#333' }}>
+            <p style={{ margin: '8px 0' }}><strong>Name:</strong> {worker.name || worker.username || 'N/A'}</p>
+            <p style={{ margin: '8px 0' }}><strong>Phone / ID:</strong> {worker.phone || worker.id || worker.userId || 'N/A'}</p>
+            <p style={{ margin: '8px 0' }}><strong>Role:</strong> {worker.role || 'WORKER'}</p>
+          </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
-            <thead>
-              <tr style={{ background: '#0070f3', color: '#fff', textAlign: 'left' }}>
-                <th style={{ padding: '10px' }}>Date & Time</th>
-                <th style={{ padding: '10px' }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {attendanceList.map((item, index) => (
-                <tr key={index} style={{ borderBottom: '1px solid #ddd' }}>
-                  <td style={{ padding: '10px' }}>
-                    {new Date(item.checkIn || item.createdAt).toLocaleString()}
-                  </td>
-                  <td style={{ padding: '10px', color: 'green', fontWeight: 'bold' }}>
-                    PRESENT ✅
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <p style={{ color: 'red' }}>No worker details found.</p>
         )}
       </div>
 
-      <div style={{ marginTop: '20px' }}>
-        <a href="/attendance" style={{ color: '#0070f3', textDecoration: 'none', fontWeight: 'bold' }}>
-          ← Back to Give Attendance Page
+      <div style={{ background: '#eef6ff', padding: '20px', borderRadius: '8px', border: '1px solid #b3d7ff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+        <div>
+          <h4 style={{ margin: '0 0 5px 0', color: '#004085' }}>Daily Attendance</h4>
+          <p style={{ margin: 0, fontSize: '14px', color: '#555' }}>Click here to give attendance with picture.</p>
+        </div>
+        <a
+          href="/attendance"
+          style={{ background: '#0070f3', color: 'white', textDecoration: 'none', padding: '10px 18px', borderRadius: '5px', fontSize: '14px', fontWeight: 'bold' }}
+        >
+          Give Attendance Now
         </a>
+      </div>
+
+      {/* পার্মানেন্ট হাজিরা হিস্ট্রি সেকশন */}
+      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '25px' }}>
+        <h3 style={{ marginTop: 0, color: '#333', fontSize: '18px', marginBottom: '15px' }}>Attendance History (হাজিরা তালিকা)</h3>
+        {history.length === 0 ? (
+          <p style={{ color: '#666', fontSize: '14px' }}>No attendance records found.</p>
+        ) : (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {history.map((item, index) => (
+              <li key={index} style={{ padding: '12px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ margin: '0 0 4px 0', fontWeight: 'bold', color: '#28a745' }}>Status: PRESENT ✅</p>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#555' }}>
+                    📅 Date: {item.date} | ⏰ Time: {item.time}
+                  </p>
+                </div>
+                {item.image && (
+                  <img src={item.image} alt="Selfie" style={{ width: '45px', height: '45px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #ccc' }} />
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div>
+        <button
+          onClick={() => {
+            localStorage.clear();
+            router.push('/login');
+          }}
+          style={{ background: '#dc3545', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px' }}
+        >
+          Logout
+        </button>
       </div>
     </div>
   );

@@ -1,17 +1,43 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function AttendancePage() {
   const [workerId, setWorkerId] = useState('');
   const [name, setName] = useState('');
   const [image, setImage] = useState(null);
-  const [mode, setMode] = useState('camera'); // 'camera' অথবা 'manual' মোড টগল করার জন্য
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
+  const router = useRouter();
 
-  // ক্যামেরা চালু করার ফাংশন
+  useEffect(() => {
+    let storedId = '';
+    let storedName = '';
+
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const userObj = JSON.parse(storedUser);
+        storedId = userObj.phone || userObj.id || userObj.userId || '';
+        storedName = userObj.name || userObj.username || '';
+      } catch (e) {}
+    }
+
+    if (!storedId) {
+      storedId = localStorage.getItem('phone') || localStorage.getItem('userPhone') || localStorage.getItem('userId') || '';
+    }
+    if (!storedName) {
+      storedName = localStorage.getItem('userName') || '';
+    }
+
+    if (storedId) setWorkerId(storedId);
+    if (storedName) setName(storedName);
+
+    // ক্যামেরা চালু করার কোড
+    startCamera();
+  }, []);
+
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -19,140 +45,111 @@ export default function AttendancePage() {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      console.error("Camera error: ", err);
-      setMessage("ক্যামেরা অন করা যাচ্ছে না!");
+      console.log('Camera error:', err);
     }
   };
 
-  // ছবি তোলার ফাংশন
-  const captureImage = () => {
+  const capturePhoto = () => {
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (video && canvas) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/png');
-      setImage(dataUrl);
-      setMessage("ছবি সফলভাবে তোলা হয়েছে!");
-    }
+    if (!video) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 300;
+    canvas.height = video.videoHeight || 200;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg');
+    setImage(dataUrl);
+    alert('Picture captured successfully! 📸');
   };
 
-  // হাজিরা সাবমিট করার ফাংশন
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!workerId) {
-      setMessage("দয়া করে কর্মী আইডি (Worker ID) লিখুন!");
-      return;
-    }
-
-    if (mode === 'camera' && !image) {
-      setMessage("দয়া করে ক্যামেরা দিয়ে ছবি তুলুন অথবা ম্যানুয়াল মোডে যান!");
-      return;
-    }
+    setLoading(true);
+    setMessage('');
 
     try {
       const res = await fetch('/api/attendance/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          workerId, 
-          name: name || 'N/A',
-          image: mode === 'camera' ? image : null // ক্যামেরা মোডে ছবি যাবে, ম্যানুয়ালে আসবে না
-        }),
+        body: JSON.stringify({ workerId, name, image }),
       });
-      
+
       const data = await res.json();
+
       if (res.ok) {
-        setMessage("হাজিরা সফলভাবে জমা হয়েছে!");
-        setWorkerId('');
-        setName('');
-        setImage(null);
+        alert('Attendance submitted successfully! ✅');
+        router.push('/worker/dashboard');
       } else {
-        setMessage(data.message || "সাবমিট করতে সমস্যা হয়েছে!");
+        setMessage(data.message || 'Failed to submit attendance.');
       }
     } catch (err) {
-      console.error(err);
-      setMessage("সার্ভার ত্রুটি দেখা দিয়েছে!");
+      setMessage('Server connection error during attendance.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="p-6 max-w-lg mx-auto bg-white shadow rounded-lg mt-6">
-      <h1 className="text-2xl font-bold mb-4 text-center">হাজিরা প্রদান সিস্টেম</h1>
+    <div style={{ padding: '40px', maxWidth: '600px', margin: 'auto', fontFamily: 'sans-serif' }}>
+      <h2 style={{ textAlign: 'center', marginBottom: '25px' }}>হাজিরা প্রদান সিস্টেম (Attendance System)</h2>
 
-      {/* মোড সিলেক্ট করার বাটন */}
-      <div className="flex justify-center gap-4 mb-6">
-        <button 
-          type="button" 
-          onClick={() => { setMode('camera'); setMessage(''); }}
-          className={`px-4 py-2 rounded font-semibold ${mode === 'camera' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-        >
-          ক্যামেরা মোড (Camera)
-        </button>
-        <button 
-          type="button" 
-          onClick={() => { setMode('manual'); setMessage(''); }}
-          className={`px-4 py-2 rounded font-semibold ${mode === 'manual' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-        >
-          ম্যানুয়াল মোড (Manual)
-        </button>
-      </div>
-      
-      <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label className="block mb-2 font-semibold">কর্মী আইডি (Worker ID):</label>
-          <input 
-            type="text" 
-            value={workerId} 
-            onChange={(e) => setWorkerId(e.target.value)}
-            className="border p-2 w-full rounded"
-            placeholder="আপনার আইডি লিখুন"
-            required
-          />
-        </div>
+      {message && (
+        <p style={{ padding: '10px', background: '#f8d7da', color: '#721c24', borderRadius: '5px', marginBottom: '15px' }}>
+          {message}
+        </p>
+      )}
 
-        <div className="mb-4">
-          <label className="block mb-2 font-semibold">কর্মীর নাম (ঐচ্ছিক):</label>
-          <input 
-            type="text" 
-            value={name} 
-            onChange={(e) => setName(e.target.value)}
-            className="border p-2 w-full rounded"
-            placeholder="আপনার নাম লিখুন"
-          />
-        </div>
-
-        {/* যদি ক্যামেরা মোড সিলেক্ট করা থাকে */}
-        {mode === 'camera' && (
-          <div className="mb-4 border p-3 rounded bg-gray-50">
-            <video ref={videoRef} autoPlay playsInline className="w-full border rounded mb-2 h-48 bg-black"></video>
-            <div className="flex gap-2">
-              <button type="button" onClick={startCamera} className="bg-green-600 text-white px-3 py-1.5 rounded text-sm">
-                ক্যামেরা অন করুন
-              </button>
-              <button type="button" onClick={captureImage} className="bg-amber-600 text-white px-3 py-1.5 rounded text-sm">
-                ছবি তুলুন
-              </button>
-            </div>
-            <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
-
-            {image && (
-              <div className="mt-3">
-                <p className="text-sm font-semibold mb-1">তোলা ছবি:</p>
-                <img src={image} alt="Preview" className="w-20 h-20 object-cover rounded border" />
-              </div>
-            )}
+      <div style={{ background: '#f0f7ff', padding: '25px', borderRadius: '8px', border: '1px solid #b3d7ff' }}>
+        <h3 style={{ marginTop: 0, fontSize: '18px', color: '#004085' }}>Give Attendance (Picture & Manual Check-in)</h3>
+        
+        {/* ক্যামেরা প্রিভিউ সেクション */}
+        <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+          <video ref={videoRef} autoPlay playsInline style={{ width: '100%', maxWidth: '300px', borderRadius: '8px', background: '#000' }}></video>
+          <div style={{ marginTop: '10px' }}>
+            <button type="button" onClick={capturePhoto} style={{ background: '#28a745', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
+              Capture Photo 📷
+            </button>
           </div>
-        )}
+          {image && <p style={{ color: 'green', fontSize: '14px', marginTop: '5px' }}>Image captured! ✔️</p>}
+        </div>
 
-        <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded w-full font-semibold hover:bg-purple-700">
-          হাজিরা সাবমিট করুন
-        </button>
-      </form>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '14px' }}>কর্মী আইডি (Worker ID / Mobile):</label>
+            <input
+              type="text"
+              value={workerId}
+              onChange={(e) => setWorkerId(e.target.value)}
+              required
+              style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ccc', background: '#fff', fontSize: '15px' }}
+            />
+          </div>
 
-      {message && <p className="mt-4 font-semibold text-center text-blue-600">{message}</p>}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '14px' }}>কর্মীর নাম (Name):</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ccc', background: '#fff', fontSize: '15px' }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{ width: '100%', background: '#0070f3', color: 'white', border: 'none', padding: '12px', borderRadius: '5px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
+          >
+            {loading ? 'Submitting...' : 'হাজিরা সাবমিট করুন ✅'}
+          </button>
+        </form>
+      </div>
+
+      <div style={{ marginTop: '25px' }}>
+        <a href="/worker/dashboard" style={{ color: '#0070f3', textDecoration: 'none', fontWeight: 'bold' }}>
+          ← Back to Worker Dashboard
+        </a>
+      </div>
     </div>
   );
 }
