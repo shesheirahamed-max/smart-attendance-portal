@@ -51,7 +51,7 @@ export default function LoginPage() {
   return (
     <div style={{ padding: '40px', maxWidth: '400px', margin: '40px auto', fontFamily: 'sans-serif', background: '#fff', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', border: '1px solid #ddd' }}>
       
-      {/* হোম পেজে যাওয়ার বাটন */}
+      {/* হোম পেজে যাওয়া বাটন */}
       <div style={{ marginBottom: '20px' }}>
         <button
           onClick={() => router.push('/')}
